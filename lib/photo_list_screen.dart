@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:photoapp/photo_view_screen.dart';
 
 class PhotoListScreen extends StatefulWidget {
   const PhotoListScreen({Key? key}) : super(key: key);
@@ -38,11 +39,16 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
         controller: _controller,
         // 表示が切り替わった時
         onPageChanged: (int index) => _onPageChanged(index),
-        children: const [
+        children: [
           // 全ての画像を表示
-          PhotoGridView(),
-          // お気に入り登録した画像
-          PhotoGridView(),
+          PhotoGridView(
+            // コールバックを設定しタップした画像のURLを受け取る
+            onTap: (imageURL) => _onTapPhoto(imageURL),
+          ),
+          PhotoGridView(
+            // コールバックを設定しタップした画像のURLを受け取る
+            onTap: (imageURL) => _onTapPhoto(imageURL),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -82,10 +88,25 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
       _currentIndex = index;
     });
   }
+
+  void _onTapPhoto(String imageURL) {
+    // 最初に表示する画像のURLを指定して、画像詳細画面に切り替える
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PhotoViewScreen(imageURL: imageURL),
+      ),
+    );
+  }
 }
 
 class PhotoGridView extends StatelessWidget {
-  const PhotoGridView({Key? key}) : super(key: key);
+  const PhotoGridView({
+    Key? key,
+    required this.onTap,
+  }) : super(key: key);
+
+  // コールバックからタップされた画像のURLを受け渡す
+  final void Function(String imageURL) onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +131,7 @@ class PhotoGridView extends StatelessWidget {
               width: double.infinity,
               height: double.infinity,
               child: InkWell(
-                onTap: () {},
+                onTap: () => onTap(imageURL),
                 child: Image.network(
                   imageURL,
                   fit: BoxFit.cover,
@@ -120,7 +141,7 @@ class PhotoGridView extends StatelessWidget {
             Align(
               alignment: Alignment.topRight,
               child: IconButton(
-                onPressed: (){},
+                onPressed: () {},
                 color: Colors.white,
                 icon: const Icon(Icons.favorite_border),
               ),
