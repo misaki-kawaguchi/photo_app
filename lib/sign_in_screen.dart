@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:photoapp/photo_list_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({Key? key}) : super(key: key);
@@ -80,11 +81,23 @@ class _SignInScreenState extends State<SignInScreen> {
     if (_formKey.currentState?.validate() != true) {
       return;
     }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const PhotoListScreen(),
+      ),
+    );
   }
 
   void _onSignUp() {
     if (_formKey.currentState?.validate() != true) {
       return;
     }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const PhotoListScreen(),
+      ),
+    );
   }
 }
