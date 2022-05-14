@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:photoapp/photo_view_screen.dart';
+import 'package:photoapp/sign_in_screen.dart';
 
 class PhotoListScreen extends StatefulWidget {
   const PhotoListScreen({Key? key}) : super(key: key);
@@ -28,7 +30,7 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
         title: const Text('Photo App'),
         actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: _onSignOut,
             icon: const Icon(
               Icons.exit_to_app,
             ),
@@ -94,6 +96,17 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PhotoViewScreen(imageURL: imageURL),
+      ),
+    );
+  }
+
+  // ログアウト
+  Future<void> _onSignOut() async{
+    // ログアウト処理
+    await FirebaseAuth.instance.signOut();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const SignInScreen(),
       ),
     );
   }
