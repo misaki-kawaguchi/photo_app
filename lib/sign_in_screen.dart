@@ -85,16 +85,33 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  void _onSignIn() {
-    if (_formKey.currentState?.validate() != true) {
-      return;
-    }
+  Future<void> _onSignIn() async {
+    try {
+      if (_formKey.currentState?.validate() != true) {
+        return;
+      }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const PhotoListScreen(),
-      ),
-    );
+      final String email = _emailController.text;
+      final String password = _passwordController.text;
+      await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const PhotoListScreen(),
+        ),
+      );
+
+    } catch (e) {
+      await showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('エラー'),
+            content: Text(e.toString()),
+          );
+        },
+      );
+    }
   }
 
   // 新規登録
@@ -119,7 +136,7 @@ class _SignInScreenState extends State<SignInScreen> {
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: Text('エラー'),
+            title: const Text('エラー'),
             content: Text(e.toString()),
           );
         },
