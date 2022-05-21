@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -138,6 +139,24 @@ Future<void> _onAddPhoto() async {
         .child('users/${user.uid}/photos') // フォルダ名
         .child(path) // ファイル名
         .putFile(file); // 画像ファイル
+
+    // アップロードした画像のURLを取得
+    final String imageURL = await task.ref.getDownloadURL();
+    // アップロードした画像の保村先を取得
+    final String imagePath = task.ref.fullPath;
+    // データ
+    final data = {
+      'imageURL': imageURL,
+      'imagePath': imagePath,
+      'isFavorite': false,
+      'createdAt': Timestamp.now(),
+    };
+
+    // データをCloud FireStoreに保存
+    await FirebaseFirestore.instance
+        .collection('users/${user.uid}/photos') // コレクション
+        .doc() // ドキュメント（何も指定しない場合は自動的にIDが決まる）
+        .set(data); // データ
   }
 }
 
