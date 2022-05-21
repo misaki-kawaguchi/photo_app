@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:photoapp/photo_view_screen.dart';
 import 'package:photoapp/sign_in_screen.dart';
@@ -54,7 +58,7 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () => _onAddPhoto(),
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -101,7 +105,7 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
   }
 
   // ログアウト
-  Future<void> _onSignOut() async{
+  Future<void> _onSignOut() async {
     // ログアウト処理
     await FirebaseAuth.instance.signOut();
     Navigator.of(context).pushReplacement(
@@ -109,6 +113,31 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
         builder: (_) => const SignInScreen(),
       ),
     );
+  }
+}
+
+// 画像追加用ボタンをタップした時の処理
+Future<void> _onAddPhoto() async {
+  // 画像ファイルを選択
+  final FilePickerResult? result = await FilePicker.platform.pickFiles(
+    type: FileType.image,
+  );
+
+  // 画像ファイルが選択された場合
+  if (result != null) {
+    // ログイン中のユーザー情報を取得
+    final User user = FirebaseAuth.instance.currentUser!;
+
+    // フォルダとファイル名を指定し画像をアップロード
+    final int timestamp = DateTime.now().microsecondsSinceEpoch;
+    final File file = File(result.files.single.path!);
+    final String name = file.path.split('/').last;
+    final String path = '${timestamp}_$name';
+    final TaskSnapshot task = await FirebaseStorage.instance
+        .ref()
+        .child('users/${user.uid}/photos') // フォルダ名
+        .child(path) // ファイル名
+        .putFile(file); // 画像ファイル
   }
 }
 
