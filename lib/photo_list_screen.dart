@@ -1,4 +1,8 @@
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:photoapp/photo_view_screen.dart';
 import 'package:photoapp/sign_in_screen.dart';
@@ -25,6 +29,8 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ログインしているユーザーの情報を取得
+    final User user = FirebaseAuth.instance.currentUser!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Photo App'),
@@ -37,24 +43,48 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
           ),
         ],
       ),
-      body: PageView(
-        controller: _controller,
-        // 表示が切り替わった時
-        onPageChanged: (int index) => _onPageChanged(index),
-        children: [
-          // 全ての画像を表示
-          PhotoGridView(
-            // コールバックを設定しタップした画像のURLを受け取る
-            onTap: (imageURL) => _onTapPhoto(imageURL),
-          ),
-          PhotoGridView(
-            // コールバックを設定しタップした画像のURLを受け取る
-            onTap: (imageURL) => _onTapPhoto(imageURL),
-          ),
-        ],
+      body: StreamBuilder<QuerySnapshot>(
+        // Cloud Firestoreからデータを取得
+        stream: FirebaseFirestore.instance
+            .collection('users/${user.uid}/photos')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          // Cloud Firestoreからデータを取得中の場合
+          if (snapshot.hasData == false) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          // Cloud Firestoreからデータを取得完了した場合
+          final QuerySnapshot query = snapshot.data!;
+          // 画像のURL一覧を作成
+          final List<String> imageList = query.docs
+              .map((doc) => doc.get('imageURL') as String)
+              .toList();
+          return PageView(
+            controller: _controller,
+            onPageChanged: (int index) => _onPageChanged(index),
+            children: [
+              //「全ての画像」を表示する部分
+              PhotoGridView(
+                // Cloud Firestoreから取得した画像のURL一覧を渡す
+                imageList: imageList,
+                onTap: (imageURL) => _onTapPhoto(imageURL, imageList),
+              ),
+              //「お気に入り登録した画像」を表示する部分
+              PhotoGridView(
+                // お気に入り登録した画像は、後ほど実装
+                imageList: [],
+                onTap: (imageURL) => _onTapPhoto(imageURL, imageList),
+              ),
+            ],
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () => _onAddPhoto(),
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -91,17 +121,20 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
     });
   }
 
-  void _onTapPhoto(String imageURL) {
+  void _onTapPhoto(String imageURL, List<String> imageList) {
     // 最初に表示する画像のURLを指定して、画像詳細画面に切り替える
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PhotoViewScreen(imageURL: imageURL),
+        builder: (_) => PhotoViewScreen(
+          imageURL: imageURL,
+          imageList: imageList,
+        ),
       ),
     );
   }
 
   // ログアウト
-  Future<void> _onSignOut() async{
+  Future<void> _onSignOut() async {
     // ログアウト処理
     await FirebaseAuth.instance.signOut();
     Navigator.of(context).pushReplacement(
@@ -112,26 +145,64 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
   }
 }
 
+// 画像追加用ボタンをタップした時の処理
+Future<void> _onAddPhoto() async {
+  // 画像ファイルを選択
+  final FilePickerResult? result = await FilePicker.platform.pickFiles(
+    type: FileType.image,
+  );
+
+  // 画像ファイルが選択された場合
+  if (result != null) {
+    // ログイン中のユーザー情報を取得
+    final User user = FirebaseAuth.instance.currentUser!;
+
+    // フォルダとファイル名を指定し画像をアップロード
+    final int timestamp = DateTime.now().microsecondsSinceEpoch;
+    final File file = File(result.files.single.path!);
+    final String name = file.path.split('/').last;
+    final String path = '${timestamp}_$name';
+    final TaskSnapshot task = await FirebaseStorage.instance
+        .ref()
+        .child('users/${user.uid}/photos') // フォルダ名
+        .child(path) // ファイル名
+        .putFile(file); // 画像ファイル
+
+    // アップロードした画像のURLを取得
+    final String imageURL = await task.ref.getDownloadURL();
+    // アップロードした画像の保村先を取得
+    final String imagePath = task.ref.fullPath;
+    // データ
+    final data = {
+      'imageURL': imageURL,
+      'imagePath': imagePath,
+      'isFavorite': false,
+      'createdAt': Timestamp.now(),
+    };
+
+    // データをCloud FireStoreに保存
+    await FirebaseFirestore.instance
+        .collection('users/${user.uid}/photos') // コレクション
+        .doc() // ドキュメント（何も指定しない場合は自動的にIDが決まる）
+        .set(data); // データ
+  }
+}
+
+// Widgetを新たに定義し再利用できる
 class PhotoGridView extends StatelessWidget {
   const PhotoGridView({
     Key? key,
+    // 引数から画像のURL一覧を受け取る
+    required this.imageList,
     required this.onTap,
   }) : super(key: key);
 
+  final List<String> imageList;
   // コールバックからタップされた画像のURLを受け渡す
   final void Function(String imageURL) onTap;
 
   @override
   Widget build(BuildContext context) {
-    // ダミー画像一覧
-    final List<String> imageList = [
-      'https://placehold.jp/400x300.png?text=0',
-      'https://placehold.jp/400x300.png?text=1',
-      'https://placehold.jp/400x300.png?text=2',
-      'https://placehold.jp/400x300.png?text=3',
-      'https://placehold.jp/400x300.png?text=4',
-      'https://placehold.jp/400x300.png?text=5',
-    ];
     return GridView.count(
       crossAxisCount: 2,
       mainAxisSpacing: 8,
