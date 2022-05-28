@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:photoapp/photo.dart';
+import 'package:photoapp/photo_repository.dart';
 import 'package:photoapp/photo_view_screen.dart';
 import 'package:photoapp/sign_in_screen.dart';
 
@@ -43,12 +45,9 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<List<Photo>>(
         // Cloud Firestoreからデータを取得
-        stream: FirebaseFirestore.instance
-            .collection('users/${user.uid}/photos')
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
+        stream: PhotoRepository(user).getPhotoList(),
         builder: (context, snapshot) {
           // Cloud Firestoreからデータを取得中の場合
           if (snapshot.hasData == false) {
@@ -58,11 +57,7 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
           }
 
           // Cloud Firestoreからデータを取得完了した場合
-          final QuerySnapshot query = snapshot.data!;
-          // 画像のURL一覧を作成
-          final List<String> imageList = query.docs
-              .map((doc) => doc.get('imageURL') as String)
-              .toList();
+          final List<Photo> photoList = snapshot.data!;
           return PageView(
             controller: _controller,
             onPageChanged: (int index) => _onPageChanged(index),
@@ -70,14 +65,14 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
               //「全ての画像」を表示する部分
               PhotoGridView(
                 // Cloud Firestoreから取得した画像のURL一覧を渡す
-                imageList: imageList,
-                onTap: (imageURL) => _onTapPhoto(imageURL, imageList),
+                photoList: photoList,
+                onTap: (photo) => _onTapPhoto(photo, photoList),
               ),
               //「お気に入り登録した画像」を表示する部分
               PhotoGridView(
                 // お気に入り登録した画像は、後ほど実装
-                imageList: [],
-                onTap: (imageURL) => _onTapPhoto(imageURL, imageList),
+                photoList: photoList,
+                onTap: (photo) => _onTapPhoto(photo, photoList),
               ),
             ],
           );
@@ -121,13 +116,13 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
     });
   }
 
-  void _onTapPhoto(String imageURL, List<String> imageList) {
+  void _onTapPhoto(Photo photo, List<Photo> photoList) {
     // 最初に表示する画像のURLを指定して、画像詳細画面に切り替える
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PhotoViewScreen(
-          imageURL: imageURL,
-          imageList: imageList,
+          photo: photo,
+          photoList: photoList,
         ),
       ),
     );
@@ -193,13 +188,13 @@ class PhotoGridView extends StatelessWidget {
   const PhotoGridView({
     Key? key,
     // 引数から画像のURL一覧を受け取る
-    required this.imageList,
+    required this.photoList,
     required this.onTap,
   }) : super(key: key);
 
-  final List<String> imageList;
+  final List<Photo> photoList;
   // コールバックからタップされた画像のURLを受け渡す
-  final void Function(String imageURL) onTap;
+  final Function(Photo photo) onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -208,16 +203,16 @@ class PhotoGridView extends StatelessWidget {
       mainAxisSpacing: 8,
       crossAxisSpacing: 8,
       padding: const EdgeInsets.all(8),
-      children: imageList.map((String imageURL) {
+      children: photoList.map((Photo photo) {
         return Stack(
           children: [
             SizedBox(
               width: double.infinity,
               height: double.infinity,
               child: InkWell(
-                onTap: () => onTap(imageURL),
+                onTap: () => onTap(photo),
                 child: Image.network(
-                  imageURL,
+                  photo.imageURL,
                   fit: BoxFit.cover,
                 ),
               ),
