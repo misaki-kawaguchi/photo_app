@@ -2,29 +2,31 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photoapp/photo.dart';
 import 'package:photoapp/photo_repository.dart';
 import 'package:photoapp/photo_view_screen.dart';
+import 'package:photoapp/providers.dart';
 import 'package:photoapp/sign_in_screen.dart';
 
-class PhotoListScreen extends StatefulWidget {
+class PhotoListScreen extends ConsumerStatefulWidget {
   const PhotoListScreen({Key? key}) : super(key: key);
 
   @override
-  State<PhotoListScreen> createState() => _PhotoListScreenState();
+  _PhotoListScreenState createState() => _PhotoListScreenState();
 }
 
-class _PhotoListScreenState extends State<PhotoListScreen> {
-  late int _currentIndex;
+class _PhotoListScreenState extends ConsumerState<PhotoListScreen> {
   late PageController _controller;
 
   @override
   void initState() {
     super.initState();
-    // PageViewで表示されているWidgetの番号を持っておく
-    _currentIndex = 0;
     // PageViewの表示を切り替えるのに使う
-    _controller = PageController(initialPage: _currentIndex);
+    _controller = PageController(
+      // Riverpodを使いデータを受け取る
+      initialPage: ref.read(photoListIndexProvider),
+    );
   }
 
   @override
@@ -43,64 +45,89 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<Photo>>(
-        // リポジトリ経由でデータを取得する
-        stream: PhotoRepository(user).getPhotoList(),
-        builder: (context, snapshot) {
-          // Cloud Firestoreからデータを取得中の場合
-          if (snapshot.hasData == false) {
-            return const Center(
-              child: CircularProgressIndicator(),
+      body: PageView(
+        controller: _controller,
+        onPageChanged: (int index) => _onPageChanged(index),
+        children: [
+          // 「全ての画像」を表示する部分
+          Consumer(builder: (context, ref, child) {
+            // 画像データ一覧を受け取る
+            final asyncPhotoList = ref.watch(photoListProvider);
+            return asyncPhotoList.when(
+              data: (List<Photo> photoList) {
+                return PhotoGridView(
+                  photoList: photoList,
+                  onTap: (photo) => _onTapPhoto(photo, photoList),
+                );
+              },
+              loading: () {
+                return Center(
+                  child: CircularProgressIndicator(),
+                );
+              },
+              error: (e, stackTrace) {
+                return Center(
+                  child: Text(e.toString()),
+                );
+              },
             );
-          }
-
-          // URL一覧ではなくモデル一覧が取得できる
-          final List<Photo> photoList = snapshot.data!;
-          return PageView(
-            controller: _controller,
-            onPageChanged: (int index) => _onPageChanged(index),
-            children: [
-              //「全ての画像」を表示する部分
-              PhotoGridView(
-                // Cloud Firestoreから取得した画像のURL一覧を渡す
-                photoList: photoList,
-                onTap: (photo) => _onTapPhoto(photo, photoList),
-              ),
-              //「お気に入り登録した画像」を表示する部分
-              PhotoGridView(
-                // お気に入り登録した画像は、後ほど実装
-                photoList: photoList,
-                onTap: (photo) => _onTapPhoto(photo, photoList),
-              ),
-            ],
-          );
-        },
+          }),
+          //「お気に入り登録した画像」を表示する部分
+          Consumer(builder: (context, ref, child) {
+            // 画像データ一覧を受け取る
+            final asyncPhotoList = ref.watch(photoListProvider);
+            return asyncPhotoList.when(
+              data: (List<Photo> photoList) {
+                return PhotoGridView(
+                  photoList: photoList,
+                  onTap: (photo) => _onTapPhoto(photo, photoList),
+                );
+              },
+              loading: () {
+                return Center(
+                  child: CircularProgressIndicator(),
+                );
+              },
+              error: (e, stackTrace) {
+                return Center(
+                  child: Text(e.toString()),
+                );
+              },
+            );
+          }),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _onAddPhoto(),
         child: const Icon(Icons.add),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        onTap: (int index) => _onTapBottomNavigationItem(index),
-        currentIndex: _currentIndex,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.image),
-            label: 'フォト',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'お気に入り',
-          ),
-        ],
+      bottomNavigationBar: Consumer(
+        builder: (context, ref, child) {
+          // 現在のページを受け取る
+          final photoIndex = ref.watch(photoListIndexProvider);
+
+          return   BottomNavigationBar(
+            onTap: (int index) => _onTapBottomNavigationItem(index),
+            currentIndex: photoIndex,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.image),
+                label: 'フォト',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.favorite),
+                label: 'お気に入り',
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   void _onPageChanged(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+    // ページの値を更新する
+    ref.read(photoListIndexProvider.state).state = index;
   }
 
   void _onTapBottomNavigationItem(int index) {
@@ -109,18 +136,23 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeIn,
     );
-    setState(() {
-      _currentIndex = index;
-    });
+    // ページの値を更新する
+    ref.read(photoListIndexProvider.state).state = index;
   }
 
   void _onTapPhoto(Photo photo, List<Photo> photoList) {
+    final initialIndex = photoList.indexOf(photo);
+
     // 最初に表示する画像のURLを指定して、画像詳細画面に切り替える
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PhotoViewScreen(
-          photo: photo,
-          photoList: photoList,
+        // ProviderScopeを使いScopedProviderの値を上書きできる
+        // ここでは、最初に表示する画像の番号を指定
+        builder: (_) => ProviderScope(
+          overrides: [
+            photoViewInitialIndexProvider.overrideWithValue(initialIndex)
+          ],
+          child: const PhotoViewScreen(),
         ),
       ),
     );

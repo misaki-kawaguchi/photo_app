@@ -1,34 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photoapp/photo.dart';
+import 'package:photoapp/providers.dart';
 
-class PhotoViewScreen extends StatefulWidget {
+class PhotoViewScreen extends ConsumerStatefulWidget {
   const PhotoViewScreen({
     Key? key,
-    // StringではなくPhotoで受け取る
-    required this.photo,
-    // 引数から画像のURL一覧を受け取る
-    required this.photoList,
   }) : super(key: key);
 
-  final Photo photo;
-  final List<Photo> photoList;
-
   @override
-  State<PhotoViewScreen> createState() => _PhotoViewScreenState();
+  _PhotoViewScreenState createState() => _PhotoViewScreenState();
 }
 
-class _PhotoViewScreenState extends State<PhotoViewScreen> {
+class _PhotoViewScreenState extends ConsumerState<PhotoViewScreen> {
   late PageController _controller;
 
   @override
   void initState() {
     super.initState();
 
-    // 受け取った画像一覧から、ページ番号を特定
-    final int initialPage = widget.photoList.indexOf(widget.photo);
-
     _controller = PageController(
-      initialPage: initialPage,
+      // Riverpodから初期値を受け取り設定
+      initialPage: ref.read(photoViewInitialIndexProvider),
     );
   }
 
@@ -43,54 +36,35 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
       ),
       body: Stack(
         children: [
-          // 画像一覧
-          PageView(
-            controller: _controller,
-            onPageChanged: (int index) => {},
-            children: widget.photoList.map((Photo photo) {
-              return Image.network(
-                photo.imageURL,
-                fit: BoxFit.contain,
-              );
-            }).toList(),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              // フッター部分にグラデーションを入れてみる
-              decoration: BoxDecoration(
-                // 線形グラデーション
-                gradient: LinearGradient(
-                  // 下方向から上方向に向かってグラデーションさせる
-                  begin: FractionalOffset.bottomCenter,
-                  end: FractionalOffset.topCenter,
-                  // 半透明の黒から透明にグラデーションさせる
-                  colors: [
-                    Colors.black.withOpacity(0.5),
-                    Colors.transparent,
-                  ],
-                  stops: [0.0, 1.0],
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // 共有ボタン
-                  IconButton(
-                    onPressed: () => {},
-                    color: Colors.white,
-                    icon: const Icon(Icons.share),
-                  ),
-                  // 削除ボタン
-                  IconButton(
-                    onPressed: () => {},
-                    color: Colors.white,
-                    icon: const Icon(Icons.delete),
-                  ),
-                ],
-              ),
-            ),
-          )
+          Consumer(builder: (context, ref, child) {
+            final asyncPhotoList = ref.watch(photoListProvider);
+
+            return asyncPhotoList.when(
+              data: (photoList) {
+                return PageView(
+                  controller: _controller,
+                  onPageChanged: (int index) => {},
+                  children: photoList.map((Photo photo) {
+                    return Image.network(
+                      photo.imageURL,
+                      fit: BoxFit.cover,
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () {
+                return Center(
+                  child: CircularProgressIndicator(),
+                );
+              },
+              error: (e, stackTrace) {
+                return Center(
+                  child: Text(e.toString()),
+                );
+              },
+            );
+          }),
+          // ...
         ],
       ),
     );
