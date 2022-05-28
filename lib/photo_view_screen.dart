@@ -4,6 +4,7 @@ import 'package:photoapp/photo.dart';
 class PhotoViewScreen extends StatefulWidget {
   const PhotoViewScreen({
     Key? key,
+    // StringではなくPhotoで受け取る
     required this.photo,
     // 引数から画像のURL一覧を受け取る
     required this.photoList,

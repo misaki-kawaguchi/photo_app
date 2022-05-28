@@ -1,8 +1,6 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:photoapp/photo.dart';
 import 'package:photoapp/photo_repository.dart';
@@ -46,7 +44,7 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
         ],
       ),
       body: StreamBuilder<List<Photo>>(
-        // Cloud Firestoreからデータを取得
+        // リポジトリ経由でデータを取得する
         stream: PhotoRepository(user).getPhotoList(),
         builder: (context, snapshot) {
           // Cloud Firestoreからデータを取得中の場合
@@ -56,7 +54,7 @@ class _PhotoListScreenState extends State<PhotoListScreen> {
             );
           }
 
-          // Cloud Firestoreからデータを取得完了した場合
+          // URL一覧ではなくモデル一覧が取得できる
           final List<Photo> photoList = snapshot.data!;
           return PageView(
             controller: _controller,
@@ -149,37 +147,11 @@ Future<void> _onAddPhoto() async {
 
   // 画像ファイルが選択された場合
   if (result != null) {
-    // ログイン中のユーザー情報を取得
+    // リポジトリ経由でデータを保存する
     final User user = FirebaseAuth.instance.currentUser!;
-
-    // フォルダとファイル名を指定し画像をアップロード
-    final int timestamp = DateTime.now().microsecondsSinceEpoch;
+    final PhotoRepository repository = PhotoRepository(user);
     final File file = File(result.files.single.path!);
-    final String name = file.path.split('/').last;
-    final String path = '${timestamp}_$name';
-    final TaskSnapshot task = await FirebaseStorage.instance
-        .ref()
-        .child('users/${user.uid}/photos') // フォルダ名
-        .child(path) // ファイル名
-        .putFile(file); // 画像ファイル
-
-    // アップロードした画像のURLを取得
-    final String imageURL = await task.ref.getDownloadURL();
-    // アップロードした画像の保村先を取得
-    final String imagePath = task.ref.fullPath;
-    // データ
-    final data = {
-      'imageURL': imageURL,
-      'imagePath': imagePath,
-      'isFavorite': false,
-      'createdAt': Timestamp.now(),
-    };
-
-    // データをCloud FireStoreに保存
-    await FirebaseFirestore.instance
-        .collection('users/${user.uid}/photos') // コレクション
-        .doc() // ドキュメント（何も指定しない場合は自動的にIDが決まる）
-        .set(data); // データ
+    await repository.addPhoto(file);
   }
 }
 
