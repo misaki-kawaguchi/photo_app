@@ -36,37 +36,75 @@ class _PhotoViewScreenState extends ConsumerState<PhotoViewScreen> {
       ),
       body: Stack(
         children: [
-          Consumer(builder: (context, ref, child) {
-            final asyncPhotoList = ref.watch(photoListProvider);
+          Consumer(
+            builder: (context, ref, child) {
+              final asyncPhotoList = ref.watch(photoListProvider);
 
-            return asyncPhotoList.when(
-              data: (photoList) {
-                return PageView(
-                  controller: _controller,
-                  onPageChanged: (int index) => {},
-                  children: photoList.map((Photo photo) {
-                    return Image.network(
-                      photo.imageURL,
-                      fit: BoxFit.cover,
-                    );
-                  }).toList(),
-                );
-              },
-              loading: () {
-                return Center(
-                  child: CircularProgressIndicator(),
-                );
-              },
-              error: (e, stackTrace) {
-                return Center(
-                  child: Text(e.toString()),
-                );
-              },
-            );
-          }),
-          // ...
+              return asyncPhotoList.when(
+                data: (photoList) {
+                  return PageView(
+                    controller: _controller,
+                    onPageChanged: (int index) => {},
+                    children: photoList.map((Photo photo) {
+                      return Image.network(
+                        photo.imageURL,
+                        fit: BoxFit.cover,
+                      );
+                    }).toList(),
+                  );
+                },
+                loading: () {
+                  return Center(
+                    child: CircularProgressIndicator(),
+                  );
+                },
+                error: (e, stackTrace) {
+                  return Center(
+                    child: Text(e.toString()),
+                  );
+                },
+              );
+            },
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  IconButton(
+                    onPressed: () => {},
+                    color: Colors.white,
+                    icon: Icon(Icons.share),
+                  ),
+                  IconButton(
+                    onPressed: () => _onTapDelete(),
+                    color: Colors.white,
+                    icon: Icon(Icons.delete),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _onTapDelete() async {
+    final photoRepository = ref.read(photoRepositoryProvider);
+    final photoList = ref.read(photoListProvider).data!.value;
+    final photo = photoList[_controller.page!.toInt()];
+
+    if (photoList.length == 1) {
+      Navigator.of(context).pop();
+    } else if (photoList.last == photo) {
+      await _controller.previousPage(
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    await photoRepository!.deletePhoto(photo);
   }
 }
