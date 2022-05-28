@@ -76,7 +76,7 @@ class _PhotoListScreenState extends ConsumerState<PhotoListScreen> {
           //「お気に入り登録した画像」を表示する部分
           Consumer(builder: (context, ref, child) {
             // 画像データ一覧を受け取る
-            final asyncPhotoList = ref.watch(photoListProvider);
+            final asyncPhotoList = ref.watch(favoritePhotoListProvider);
             return asyncPhotoList.when(
               data: (List<Photo> photoList) {
                 return PhotoGridView(
