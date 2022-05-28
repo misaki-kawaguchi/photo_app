@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photoapp/photo.dart';
 import 'package:photoapp/providers.dart';
+import 'package:share/share.dart';
 
 class PhotoViewScreen extends ConsumerStatefulWidget {
   const PhotoViewScreen({
@@ -73,7 +74,7 @@ class _PhotoViewScreenState extends ConsumerState<PhotoViewScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   IconButton(
-                    onPressed: () => {},
+                    onPressed: () => _onTapShare(),
                     color: Colors.white,
                     icon: Icon(Icons.share),
                   ),
@@ -89,6 +90,14 @@ class _PhotoViewScreenState extends ConsumerState<PhotoViewScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _onTapShare() async {
+    final photoList = ref.read(photoListProvider).data!.value;
+    final photo = photoList[_controller.page!.toInt()];
+
+    // 画像URLを共有
+    await Share.share(photo.imageURL);
   }
 
   Future<void> _onTapDelete() async {

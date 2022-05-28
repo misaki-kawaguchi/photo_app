@@ -234,7 +234,7 @@ class PhotoGridView extends StatelessWidget {
             Align(
               alignment: Alignment.topRight,
               child: IconButton(
-                onPressed: () {},
+                onPressed: () => onTapFav(photo),
                 color: Colors.white,
                 icon: Icon(
                   // お気に入り登録状況に応じてアイコンを切り替え
