@@ -26,3 +26,12 @@ final photoListProvider = StreamProvider.autoDispose((ref) {
       ? Stream.value(<Photo>[])
       : photoRepository.getPhotoList();
 });
+
+// photoListProviderのデータを元に、お気に入り登録されたデータのみ受け渡せるようにする
+final favoritePhotoListProvider = Provider.autoDispose((ref) {
+  return ref.watch(photoListProvider).whenData(
+        (List<Photo> data) {
+      return data.where((photo) => photo.isFavorite == true).toList();
+    },
+  );
+});

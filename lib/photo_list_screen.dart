@@ -58,6 +58,7 @@ class _PhotoListScreenState extends ConsumerState<PhotoListScreen> {
                 return PhotoGridView(
                   photoList: photoList,
                   onTap: (photo) => _onTapPhoto(photo, photoList),
+                  onTapFav: (photo) => _onTapFav(photo),
                 );
               },
               loading: () {
@@ -81,6 +82,7 @@ class _PhotoListScreenState extends ConsumerState<PhotoListScreen> {
                 return PhotoGridView(
                   photoList: photoList,
                   onTap: (photo) => _onTapPhoto(photo, photoList),
+                  onTapFav: (photo) => _onTapFav(photo),
                 );
               },
               loading: () {
@@ -123,6 +125,12 @@ class _PhotoListScreenState extends ConsumerState<PhotoListScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _onTapFav(Photo photo) async {
+    final photoRepository = ref.read(photoRepositoryProvider);
+    final toggledPhoto = photo.toggleIsFavorite();
+    await photoRepository!.updatePhoto(toggledPhoto);
   }
 
   void _onPageChanged(int index) {
@@ -194,11 +202,13 @@ class PhotoGridView extends StatelessWidget {
     // 引数から画像のURL一覧を受け取る
     required this.photoList,
     required this.onTap,
+    required this.onTapFav,
   }) : super(key: key);
 
   final List<Photo> photoList;
   // コールバックからタップされた画像のURLを受け渡す
   final Function(Photo photo) onTap;
+  final void Function(Photo photo) onTapFav;
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +236,12 @@ class PhotoGridView extends StatelessWidget {
               child: IconButton(
                 onPressed: () {},
                 color: Colors.white,
-                icon: const Icon(Icons.favorite_border),
+                icon: Icon(
+                  // お気に入り登録状況に応じてアイコンを切り替え
+                  photo.isFavorite == true
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                ),
               ),
             ),
           ],
